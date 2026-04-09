@@ -335,12 +335,17 @@
     vertical-align: middle;
   }
 
-  @media (max-width: 600px) {
-    #detail-panel { width: 100%; right: -100%; }
-    #detail-panel.open { right: 0; }
-    .player-card { min-width: 90px; padding: 5px 7px; }
-    .card-name { font-size: 0.65rem; max-width: 100px; }
-  }
+@media (max-width: 600px) {
+  #detail-panel { width: 100%; right: -100%; }
+  #detail-panel.open { right: 0; }
+  .player-card { min-width: 60px; max-width: 72px; padding: 3px 5px; }
+  .card-name { font-size: 0.55rem; max-width: 68px; }
+  .card-pos-badge { font-size: 0.48rem; }
+  .stat-val { font-size: 0.6rem; }
+  .stat-lbl { font-size: 0.42rem; }
+  .card-stats { gap: 4px; }
+  .pos-group { gap: 3px; }
+}
 </style>
 </head>
 <body>
