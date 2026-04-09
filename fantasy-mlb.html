@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fantasy MLB Roster</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  /* ── Reset & Base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --grass-dark:   #1a2e1a;
+    --grass-mid:    #223322;
+    --grass-light:  #2a3d2a;
+    --dirt:         #8b6340;
+    --dirt-light:   #a07850;
+    --chalk:        rgba(255,255,255,0.82);
+    --chalk-dim:    rgba(255,255,255,0.18);
+    --card-bg:      rgba(8, 14, 8, 0.82);
+    --card-border:  rgba(255,255,255,0.15);
+    --card-hover:   rgba(255,255,255,0.22);
+    --accent:       #e8c84a;
+    --accent-dim:   rgba(232,200,74,0.15);
+    --text-primary: #f0ede4;
+    --text-muted:   rgba(240,237,228,0.5);
+    --text-stat:    #e8c84a;
+    --panel-bg:     rgba(4,8,4,0.95);
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: #0d1a0d;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text-primary);
+    overflow-x: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    text-align: center;
+    padding: 28px 20px 12px;
+    position: relative;
+    z-index: 10;
+  }
+  header h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(2.2rem, 5vw, 3.8rem);
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    text-shadow: 0 0 40px rgba(232,200,74,0.25);
+    line-height: 1;
+  }
+  header p {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+  #last-updated {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+  }
+
+  /* ── Field Wrapper ── */
+  #field-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 16px 40px;
+  }
+
+  /* ── SVG Field ── */
+  #field-svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  /* ── Player Cards (absolutely positioned over field) ── */
+  #cards-layer {
+    position: absolute;
+    top: 0; left: 16px;
+    width: calc(100% - 32px);
+    height: 100%;
+    pointer-events: none;
+  }
+
+  .pos-group {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    pointer-events: all;
+    z-index: 20;
+  }
+
+  /* ── Player Card ── */
+  .player-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    padding: 6px 9px;
+    cursor: pointer;
+    transition: border-color 0.18s, background 0.18s, transform 0.15s;
+    min-width: 110px;
+    backdrop-filter: blur(6px);
+    position: relative;
+  }
+  .player-card:hover {
+    border-color: var(--accent);
+    background: rgba(12, 20, 12, 0.92);
+    transform: translateY(-2px) scale(1.02);
+    z-index: 100;
+  }
+  .player-card.active {
+    border-color: var(--accent);
+    background: rgba(12, 20, 12, 0.96);
+  }
+
+  .card-name {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+    font-size: 0.72rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+  }
+  .card-pos-badge {
+    display: inline-block;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+    margin-bottom: 3px;
+  }
+  .card-stats {
+    display: flex;
+    gap: 8px;
+    margin-top: 3px;
+  }
+  .stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .stat-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-stat);
+    line-height: 1;
+  }
+  .stat-lbl {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.5rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 1px;
+  }
+
+  /* ── Detail Panel (slide-in) ── */
+  #detail-panel {
+    position: fixed;
+    top: 0; right: -420px;
+    width: 380px;
+    height: 100vh;
+    background: var(--panel-bg);
+    border-left: 1px solid var(--card-border);
+    z-index: 1000;
+    transition: right 0.3s cubic-bezier(0.4,0,0.2,1);
+    overflow-y: auto;
+    padding: 28px 24px;
+  }
+  #detail-panel.open { right: 0; }
+
+  #panel-close {
+    position: absolute;
+    top: 16px; right: 16px;
+    background: none;
+    border: 1px solid var(--card-border);
+    color: var(--text-muted);
+    width: 28px; height: 28px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  #panel-close:hover { border-color: var(--accent); color: var(--accent); }
+
+  #panel-pos {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--accent);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  #panel-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    letter-spacing: 0.05em;
+    color: var(--text-primary);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  #panel-team {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  .panel-section-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--card-border);
+    padding-bottom: 6px;
+    margin-bottom: 12px;
+    margin-top: 20px;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+  }
+  .stat-cell {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--card-border);
+    border-radius: 5px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+  }
+  .stat-cell .val {
+    font-family: 'DM Mono', monospace;
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text-stat);
+    line-height: 1;
+  }
+  .stat-cell .lbl {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.55rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 3px;
+  }
+
+  /* ── Overlay ── */
+  #overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 999;
+  }
+  #overlay.show { display: block; }
+
+  /* ── Loading / Error ── */
+  #loading {
+    text-align: center;
+    padding: 60px 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+  }
+  #error-msg {
+    display: none;
+    text-align: center;
+    padding: 30px 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: #e05050;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── Config Banner ── */
+  #config-banner {
+    background: rgba(232,200,74,0.1);
+    border: 1px solid rgba(232,200,74,0.3);
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin: 0 auto 16px;
+    max-width: 1100px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+    line-height: 1.6;
+  }
+  #config-banner code {
+    background: rgba(232,200,74,0.15);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  /* Legend */
+  #legend {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    padding: 0 20px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .legend-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 5px;
+    vertical-align: middle;
+  }
+
+  @media (max-width: 600px) {
+    #detail-panel { width: 100%; right: -100%; }
+    #detail-panel.open { right: 0; }
+    .player-card { min-width: 90px; padding: 5px 7px; }
+    .card-name { font-size: 0.65rem; max-width: 100px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚾ Fantasy Roster 2026</h1>
+  <p id="last-updated">Loading roster data…</p>
+</header>
+
+<!-- ⚙️ SETUP: Replace SHEET_ID with your Google Sheet ID -->
+<!-- Your Sheet ID is in the URL: docs.google.com/spreadsheets/d/SHEET_ID/edit -->
+<!-- Also make sure your sheet is published: File → Share → Publish to web -->
+<div id="config-banner">
+  ⚙️ <strong>Setup required:</strong> Open this file and replace <code>YOUR_SHEET_ID_HERE</code> with your Google Sheet ID, and <code>Sheet1</code> with your actual tab name.
+  Then publish your sheet via <strong>File → Share → Publish to web</strong>.
+</div>
+
+<div id="loading">Loading roster…</div>
+<div id="error-msg"></div>
+
+<div id="legend">
+  <span><span class="legend-dot" style="background:#4a9e5c"></span>Outfield / Infield</span>
+  <span><span class="legend-dot" style="background:#e8c84a"></span>Battery</span>
+  <span>Click a player for full stats</span>
+</div>
+
+<div id="field-wrapper" style="display:none">
+  <!-- SVG Baseball Field -->
+  <svg id="field-svg" viewBox="0 0 1000 920" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <!-- Outfield grass stripes -->
+      <pattern id="stripes" width="40" height="40" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <rect width="40" height="40" fill="#1e2e1e"/>
+        <rect width="20" height="40" fill="#223a22"/>
+      </pattern>
+      <!-- Infield dirt gradient -->
+      <radialGradient id="dirtGrad" cx="50%" cy="65%" r="45%">
+        <stop offset="0%" stop-color="#9e7248"/>
+        <stop offset="100%" stop-color="#7a5530"/>
+      </radialGradient>
+      <!-- Base highlight -->
+      <filter id="glow">
+        <feGaussianBlur stdDeviation="3" result="blur"/>
+        <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+      </filter>
+    </defs>
+
+    <!-- Outfield grass -->
+    <path d="M500,860 L30,860 L30,200 Q500,30 970,200 L970,860 Z" fill="url(#stripes)"/>
+
+    <!-- Infield dirt diamond area -->
+    <path d="M500,860 L170,530 Q330,280 500,200 Q670,280 830,530 Z" fill="url(#dirtGrad)" opacity="0.55"/>
+
+    <!-- Outfield fence arc (chalk) -->
+    <path d="M80,860 Q500,100 920,860" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="2.5" stroke-dasharray="8 6"/>
+
+    <!-- Foul lines -->
+    <line x1="500" y1="860" x2="80" y2="200" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+    <line x1="500" y1="860" x2="920" y2="200" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+
+    <!-- Infield grass square (rotated diamond) -->
+    <polygon points="500,240 690,430 500,620 310,430" fill="#2a3d2a" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+
+    <!-- Basepaths (dirt) -->
+    <polygon points="500,240 690,430 500,620 310,430" fill="none" stroke="#9e7248" stroke-width="22" stroke-opacity="0.5"/>
+
+    <!-- Pitcher's mound circle -->
+    <circle cx="500" cy="430" r="28" fill="#9e7248" opacity="0.8"/>
+    <circle cx="500" cy="430" r="5" fill="#b89060" opacity="0.9"/>
+
+    <!-- Bases -->
+    <!-- Home plate -->
+    <polygon points="500,632 513,622 513,608 487,608 487,622" fill="white" opacity="0.9"/>
+    <!-- First base -->
+    <rect x="678" y="418" width="24" height="24" rx="2" fill="white" opacity="0.9" transform="rotate(45,690,430)"/>
+    <!-- Second base -->
+    <rect x="488" y="228" width="24" height="24" rx="2" fill="white" opacity="0.9" transform="rotate(45,500,240)"/>
+    <!-- Third base -->
+    <rect x="298" y="418" width="24" height="24" rx="2" fill="white" opacity="0.9" transform="rotate(45,310,430)"/>
+
+    <!-- Batter's boxes -->
+    <rect x="468" y="616" width="22" height="40" rx="1" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+    <rect x="510" y="616" width="22" height="40" rx="1" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+
+    <!-- Catcher's box -->
+    <rect x="471" y="656" width="58" height="30" rx="1" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+
+    <!-- Bullpen areas (bottom corners) -->
+    <rect x="30" y="720" width="90" height="120" rx="4" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.1)" stroke-width="1" stroke-dasharray="4 4"/>
+    <text x="75" y="785" text-anchor="middle" font-family="'DM Mono',monospace" font-size="9" fill="rgba(255,255,255,0.2)" letter-spacing="1">BULLPEN</text>
+    <rect x="880" y="720" width="90" height="120" rx="4" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.1)" stroke-width="1" stroke-dasharray="4 4"/>
+    <text x="925" y="785" text-anchor="middle" font-family="'DM Mono',monospace" font-size="9" fill="rgba(255,255,255,0.2)" letter-spacing="1">BULLPEN</text>
+
+    <!-- Position labels (subtle) -->
+    <text x="500" y="422" text-anchor="middle" dominant-baseline="central" font-family="'DM Mono',monospace" font-size="9" fill="rgba(255,255,255,0.25)" letter-spacing="1">P</text>
+  </svg>
+
+  <!-- Cards layer (positioned absolutely over SVG) -->
+  <div id="cards-layer"></div>
+</div>
+
+<!-- Detail Panel -->
+<div id="overlay"></div>
+<div id="detail-panel">
+  <button id="panel-close" onclick="closePanel()">✕</button>
+  <div id="panel-pos"></div>
+  <div id="panel-name"></div>
+  <div id="panel-team"></div>
+  <div class="panel-section-title">Key Stats</div>
+  <div class="stats-grid" id="panel-key-stats"></div>
+  <div class="panel-section-title">Full Stats</div>
+  <div class="stats-grid" id="panel-all-stats"></div>
+</div>
+
+<script>
+// ════════════════════════════════════════════
+//  ⚙️  CONFIGURE THESE TWO VALUES
+// ════════════════════════════════════════════
+const SHEET_ID  = '1wspsgiWSP0SWq2dJlJ1oOZy5LiMP9JPB3pnF-9-CaNw';
+const SHEET_TAB = '2026 Hitting';           // Your tab name (bottom of Google Sheets)
+// ════════════════════════════════════════════
+
+// Field position coordinates as % of SVG viewBox (1000 x 920)
+// Format: [left%, top%] relative to the field-wrapper div
+const POS_COORDS = {
+  'SP':  { x: 50.0, y: 46.0 },
+  'RP':  { x: 50.0, y: 88.0 },
+  'C':   { x: 50.0, y: 74.5 },
+  '1B':  { x: 71.5, y: 54.0 },
+  '2B':  { x: 61.0, y: 38.5 },
+  'SS':  { x: 39.0, y: 38.5 },
+  '3B':  { x: 28.5, y: 54.0 },
+  'LF':  { x: 22.0, y: 26.0 },
+  'CF':  { x: 50.0, y: 16.0 },
+  'RF':  { x: 78.0, y: 26.0 },
+};
+
+const KEY_STATS   = ['AB','HR','OPS'];
+const ALL_COLUMNS = ['PlayerAge','Team','Lg','WAR','G','PA','AB','R','H','2B','3B','HR','RBI','SB','CS','BB','SO','BA','OBP','SLG','OPS','OPS+','rOBA','Rbat+','TB','GIDP','HBP','SH','SF','IBB'];
+
+let allPlayers = {};
+
+async function loadRoster() {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_TAB)}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Network error');
+    const text = await res.text();
+    // Strip Google's JSONP wrapper
+    const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1]);
+    return parseSheet(json);
+  } catch(e) {
+    throw new Error('Could not load sheet. Make sure your Sheet ID is correct and the sheet is published.');
+  }
+}
+
+function parseSheet(json) {
+  const cols = json.table.cols.map(c => c.label.trim());
+  const rows = json.table.rows;
+  return rows.map(row => {
+    const player = {};
+    cols.forEach((col, i) => {
+      const cell = row.c[i];
+      player[col] = cell ? (cell.v !== null && cell.v !== undefined ? cell.v : '') : '';
+    });
+    return player;
+  }).filter(p => p.Name && p.Pos);
+}
+
+function groupByPosition(players) {
+  const groups = {};
+  players.forEach(p => {
+    const pos = (p.Pos || '').trim().toUpperCase();
+    if (!groups[pos]) groups[pos] = [];
+    groups[pos].push(p);
+  });
+  return groups;
+}
+
+function fmt(val, col) {
+  if (val === '' || val === null || val === undefined) return '—';
+  if (['BA','OBP','SLG','OPS','rOBA'].includes(col)) {
+    const n = parseFloat(val);
+    return isNaN(n) ? val : n.toFixed(3).replace(/^0/, '');
+  }
+  if (['WAR','Rbat+','OPS+'].includes(col)) {
+    const n = parseFloat(val);
+    return isNaN(n) ? val : n.toFixed(1);
+  }
+  return String(val);
+}
+
+function buildCards(grouped) {
+  const layer = document.getElementById('cards-layer');
+  layer.innerHTML = '';
+
+  Object.entries(grouped).forEach(([pos, players]) => {
+    const coords = POS_COORDS[pos];
+    if (!coords) return; // unknown position
+
+    const group = document.createElement('div');
+    group.className = 'pos-group';
+    group.style.left = coords.x + '%';
+    group.style.top  = coords.y + '%';
+
+    players.forEach(player => {
+      const card = document.createElement('div');
+      card.className = 'player-card';
+      card.innerHTML = `
+        <div class="card-pos-badge">${pos} · ${player.Team || ''}</div>
+        <div class="card-name">${player.Name}</div>
+        <div class="card-stats">
+          ${KEY_STATS.map(s => `
+            <div class="stat-item">
+              <span class="stat-val">${fmt(player[s], s)}</span>
+              <span class="stat-lbl">${s}</span>
+            </div>`).join('')}
+        </div>`;
+      card.addEventListener('click', () => openPanel(player, pos));
+      group.appendChild(card);
+    });
+
+    layer.appendChild(group);
+  });
+}
+
+function openPanel(player, pos) {
+  document.getElementById('panel-pos').textContent = pos;
+  document.getElementById('panel-name').textContent = player.Name;
+  document.getElementById('panel-team').textContent =
+    [player.Team, player.Lg, player.PlayerAge ? `Age ${player.PlayerAge}` : ''].filter(Boolean).join(' · ');
+
+  // Key stats block
+  const keyGrid = document.getElementById('panel-key-stats');
+  keyGrid.innerHTML = KEY_STATS.map(s => `
+    <div class="stat-cell">
+      <span class="val">${fmt(player[s], s)}</span>
+      <span class="lbl">${s}</span>
+    </div>`).join('');
+
+  // All stats grid
+  const allGrid = document.getElementById('panel-all-stats');
+  allGrid.innerHTML = ALL_COLUMNS.filter(s => !KEY_STATS.includes(s)).map(s => `
+    <div class="stat-cell">
+      <span class="val">${fmt(player[s], s)}</span>
+      <span class="lbl">${s}</span>
+    </div>`).join('');
+
+  document.getElementById('detail-panel').classList.add('open');
+  document.getElementById('overlay').classList.add('show');
+}
+
+function closePanel() {
+  document.getElementById('detail-panel').classList.remove('open');
+  document.getElementById('overlay').classList.remove('show');
+}
+
+document.getElementById('overlay').addEventListener('click', closePanel);
+
+async function init() {
+  if (SHEET_ID === 'YOUR_SHEET_ID_HERE') {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('field-wrapper').style.display = 'block';
+    // Show demo data so the layout is visible
+    const demo = makeDemoData();
+    const grouped = groupByPosition(demo);
+    buildCards(grouped);
+    document.getElementById('last-updated').textContent = 'Demo mode — add your Sheet ID to load real data';
+    return;
+  }
+
+  try {
+    const players = await loadRoster();
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('field-wrapper').style.display = 'block';
+    document.getElementById('config-banner').style.display = 'none';
+    const grouped = groupByPosition(players);
+    buildCards(grouped);
+    const now = new Date().toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+    document.getElementById('last-updated').textContent = `Last loaded: ${now}`;
+  } catch(e) {
+    document.getElementById('loading').style.display = 'none';
+    const err = document.getElementById('error-msg');
+    err.style.display = 'block';
+    err.textContent = '⚠ ' + e.message;
+  }
+}
+
+function makeDemoData() {
+  return [
+    {Name:'C. Sale',   Pos:'SP', Team:'ATL', Lg:'NL', PlayerAge:37, WAR:3.2, G:28, PA:0,  AB:0,   R:0,  H:0,   '2B':0, '3B':0, HR:0,  RBI:0,  SB:0, CS:0, BB:0, SO:180, BA:'—',  OBP:'—',  SLG:'—',  OPS:'—',  'OPS+':0, rOBA:'—', 'Rbat+':0, TB:0, GIDP:0, HBP:0, SH:0, SF:0, IBB:0},
+    {Name:'G. Cole',   Pos:'SP', Team:'NYY', Lg:'AL', PlayerAge:34, WAR:4.1, G:30, PA:0,  AB:0,   R:0,  H:0,   '2B':0, '3B':0, HR:0,  RBI:0,  SB:0, CS:0, BB:0, SO:210, BA:'—',  OBP:'—',  SLG:'—',  OPS:'—',  'OPS+':0, rOBA:'—', 'Rbat+':0, TB:0, GIDP:0, HBP:0, SH:0, SF:0, IBB:0},
+    {Name:'E. Clase',  Pos:'RP', Team:'CLE', Lg:'AL', PlayerAge:27, WAR:1.8, G:60, PA:0,  AB:0,   R:0,  H:0,   '2B':0, '3B':0, HR:0,  RBI:0,  SB:0, CS:0, BB:0, SO:72,  BA:'—',  OBP:'—',  SLG:'—',  OPS:'—',  'OPS+':0, rOBA:'—', 'Rbat+':0, TB:0, GIDP:0, HBP:0, SH:0, SF:0, IBB:0},
+    {Name:'W. Smith',  Pos:'C',  Team:'LAD', Lg:'NL', PlayerAge:29, WAR:2.9, G:118, PA:415, AB:372, R:55, H:98, '2B':18, '3B':1, HR:18, RBI:60, SB:2, CS:1, BB:38, SO:98,  BA:'.263', OBP:'.338', SLG:'.457', OPS:'.795', 'OPS+':118, rOBA:'.342', 'Rbat+':115, TB:174, GIDP:8, HBP:4, SH:0, SF:5, IBB:3},
+    {Name:'F. Freeman', Pos:'1B', Team:'LAD', Lg:'NL', PlayerAge:35, WAR:4.8, G:145, PA:598, AB:530, R:92, H:160, '2B':34, '3B':2, HR:24, RBI:95, SB:6, CS:2, BB:60, SO:110, BA:'.302', OBP:'.382', SLG:'.512', OPS:'.894', 'OPS+':145, rOBA:'.392', 'Rbat+':142, TB:271, GIDP:12, HBP:4, SH:0, SF:6, IBB:8},
+    {Name:'J. Turner',  Pos:'2B', Team:'SEA', Lg:'AL', PlayerAge:29, WAR:3.1, G:140, PA:571, AB:505, R:78, H:138, '2B':28, '3B':3, HR:16, RBI:65, SB:14, CS:4, BB:58, SO:125, BA:'.273', OBP:'.351', SLG:'.434', OPS:'.785', 'OPS+':115, rOBA:'.345', 'Rbat+':112, TB:219, GIDP:9, HBP:5, SH:2, SF:4, IBB:2},
+    {Name:'B. Witt Jr.', Pos:'SS', Team:'KC',  Lg:'AL', PlayerAge:24, WAR:5.9, G:154, PA:648, AB:588, R:105, H:178, '2B':35, '3B':7, HR:28, RBI:96, SB:30, CS:8, BB:48, SO:145, BA:'.303', OBP:'.358', SLG:'.523', OPS:'.881', 'OPS+':138, rOBA:'.374', 'Rbat+':136, TB:307, GIDP:11, HBP:6, SH:1, SF:5, IBB:4},
+    {Name:'A. Riley',   Pos:'3B', Team:'ATL', Lg:'NL', PlayerAge:27, WAR:2.4, G:145, PA:591, AB:538, R:85, H:148, '2B':30, '3B':2, HR:22, RBI:80, SB:5, CS:2, BB:45, SO:148, BA:'.275', OBP:'.337', SLG:'.462', OPS:'.799', 'OPS+':118, rOBA:'.336', 'Rbat+':116, TB:248, GIDP:14, HBP:5, SH:0, SF:5, IBB:3},
+    {Name:'J. Soto',    Pos:'LF', Team:'NYM', Lg:'NL', PlayerAge:26, WAR:5.2, G:152, PA:658, AB:540, R:112, H:162, '2B':32, '3B':3, HR:35, RBI:102, SB:8, CS:3, BB:108, SO:138, BA:'.300', OBP:'.419', SLG:'.563', OPS:'.982', 'OPS+':165, rOBA:'.418', 'Rbat+':162, TB:304, GIDP:8, HBP:6, SH:0, SF:4, IBB:14},
+    {Name:'C. Bellinger', Pos:'CF', Team:'CHC', Lg:'NL', PlayerAge:30, WAR:2.8, G:138, PA:554, AB:492, R:80, H:138, '2B':26, '3B':4, HR:18, RBI:72, SB:12, CS:4, BB:55, SO:130, BA:'.281', OBP:'.352', SLG:'.452', OPS:'.804', 'OPS+':120, rOBA:'.348', 'Rbat+':118, TB:222, GIDP:10, HBP:4, SH:1, SF:3, IBB:2},
+    {Name:'S. Ohtani',   Pos:'RF', Team:'LAD', Lg:'NL', PlayerAge:31, WAR:8.1, G:155, PA:665, AB:570, R:118, H:168, '2B':28, '3B':3, HR:44, RBI:110, SB:22, CS:5, BB:84, SO:162, BA:'.295', OBP:'.393', SLG:'.608', OPS:'1.001', 'OPS+':172, rOBA:'.424', 'Rbat+':170, TB:346, GIDP:6, HBP:7, SH:0, SF:5, IBB:18},
+  ];
+}
+
+init();
+</script>
+</body>
+</html>
